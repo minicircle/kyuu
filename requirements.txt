@@ -1,0 +1,8 @@
+numpy==1.21.2
+requests==2.26.0
+opencv_python==4.5.3.56
+keyboard==0.13.5
+pytesseract==0.3.8
+pywin32==301
+Pillow==8.3.2
+win32gui==221.6
