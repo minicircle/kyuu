@@ -112,16 +112,14 @@ if not hwnd:
 window_left, window_top, window_right, window_bottom = win32gui.GetWindowRect(hwnd)
 window_width, window_height = window_right - window_left, window_bottom - window_top
 
-# get the device context of the window
-hdcwin = win32gui.GetWindowDC(hwnd)
-
-
 # returns an RGB array
 # https://github.com/NetEaseGame/ATX/blob/master/atx/drivers/windows.py
 # https://stackoverflow.com/questions/4589206/python-windows-7-screenshot-without-pil
 # https://github.com/mhammond/pywin32/blob/73e253d5eba8d92fa9b6277e333da261e8c0c0d1/win32/Demos/print_desktop.py
 # https://docs.microsoft.com/en-us/windows/win32/gdi/capturing-an-image
 def screenshotWindow():
+    # get the device context of the window
+    hdcwin = win32gui.GetWindowDC(hwnd)
     # create a temporary device context
     hdcmem = win32gui.CreateCompatibleDC(hdcwin)
     # create a temporary bitmap
@@ -182,6 +180,7 @@ def screenshotWindow():
     # cleanup
     win32gui.DeleteObject(hbmp)
     win32gui.DeleteObject(hdcmem)
+    win32gui.ReleaseDC(hwnd, hdcwin)
 
     return screenshot_array
 
@@ -346,7 +345,7 @@ while not keyboard.is_pressed("q"):
             print(f"Not yet {dt.now():%H%M%S}")
             # failsafe in case bot is stuck in loop waiting for wild
             count += 1
-            if count > 200:
+            if count > 400:
                 payload = {
                     "embeds": [{"color": 0xFF0000, "title": "Failsafe triggered."}]
                 }
