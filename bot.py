@@ -90,6 +90,30 @@ def colorMatchesColor(color_1, color_2, tolerance=0):
     )
 
 
+def getCasinoCoinDisplayText(screenshot_array):
+    casino_coin_display_array = screenshot_array[
+        COINS_Y : COINS_Y + COINS_HEIGHT, COINS_X : COINS_X + COINS_WIDTH
+    ]
+
+    casino_coin_display_grayscale = cv2.cvtColor(
+        casino_coin_display_array, cv2.COLOR_RGB2GRAY
+    )
+    # setting threshold value to 50 so we have bolder text
+    # inverting image so we have dark text on light background
+    # hopefully will reduce the number of times "4" is read as "6"
+    ret_val, casino_coin_display_processed = cv2.threshold(
+        casino_coin_display_grayscale, 80, 255, cv2.THRESH_BINARY_INV
+    )
+
+    # page segmentation mode 7 = "Treat the image as a single text line."
+    casino_coin_display_text = pytesseract.image_to_string(
+        casino_coin_display_processed,
+        config="--psm 7",
+    ).strip()
+    # print(casino_coin_display_text)
+    return casino_coin_display_text
+
+
 def logToDiscord(payload):
     response = requests.post(
         WEBHOOK_URL,
@@ -204,36 +228,16 @@ while not keyboard.is_pressed("q"):
     window_left, window_top, window_right, window_bottom = win32gui.GetWindowRect(hwnd)
     print(f"Window top-left corner: {window_left, window_top}")
     print("Taking screenshot...")
-    # start_time = time.perf_counter()
+    start_time = time.perf_counter()
 
     screenshot_array = screenshotWindow()
 
-    # print(f"Screenshot taken. Elapsed time: {(time.perf_counter() - start_time):.4f}")
+    print(f"Screenshot taken. Elapsed time: {(time.perf_counter() - start_time):.4f}")
 
-    casino_coin_display_array = screenshot_array[
-        COINS_Y : COINS_Y + COINS_HEIGHT, COINS_X : COINS_X + COINS_WIDTH
-    ]
-
-    casino_coin_display_grayscale = cv2.cvtColor(
-        casino_coin_display_array, cv2.COLOR_RGB2GRAY
-    )
-    # setting threshold value to 50 so we have bolder text
-    # inverting image so we have dark text on light background
-    # hopefully will reduce the number of times "4" is read as "6"
-    ret_val, casino_coin_display_processed = cv2.threshold(
-        casino_coin_display_grayscale, 80, 255, cv2.THRESH_BINARY_INV
-    )
-
-    # page segmentation mode 7 = "Treat the image as a single text line."
-    casino_coin_display_text = pytesseract.image_to_string(
-        casino_coin_display_processed,
-        config="--psm 7",
-    ).strip()
-    print(casino_coin_display_text)
     pip_color = getPixelColor(PIP_X, PIP_Y, screenshot_array)
-    print(f"Pip color: {pip_color}")
+    # print(f"Pip color: {pip_color}")
     sky_color = getPixelColor(SKY_X, SKY_Y, screenshot_array)
-    print(f"Sky color: {sky_color}")
+    # print(f"Sky color: {sky_color}")
 
     if colorMatchesColor(pip_color, FILLED_PIP_COLOR, 10):
         pip_state = "filled"
@@ -245,6 +249,7 @@ while not keyboard.is_pressed("q"):
 
     if colorMatchesColor(sky_color, DEFAULT_SKY_COLOR, 10):
         if sky_state != "default":
+            casino_coin_display_text = getCasinoCoinDisplayText(screenshot_array)
             payload = {
                 "embeds": [
                     {
@@ -267,6 +272,7 @@ while not keyboard.is_pressed("q"):
                 "./detection_history/chance/"
                 + f"chance_detected_{dt.now():%Y%m%d_%H%M%S}.png"
             )
+            casino_coin_display_text = getCasinoCoinDisplayText(screenshot_array)
             payload = {
                 "embeds": [
                     {
@@ -287,6 +293,7 @@ while not keyboard.is_pressed("q"):
                 "./detection_history/burst/"
                 + f"burst_detected_{dt.now():%Y%m%d_%H%M%S}.png"
             )
+            casino_coin_display_text = getCasinoCoinDisplayText(screenshot_array)
             payload = {
                 "embeds": [
                     {
@@ -297,6 +304,12 @@ while not keyboard.is_pressed("q"):
                 ]
             }
             logToDiscord(payload)
+        else:
+            pathlib.Path("./detection_history/burst").mkdir(parents=True, exist_ok=True)
+            Image.fromarray(screenshot_array).save(
+                "./detection_history/burst/"
+                + f"burst_ongoing_{dt.now():%Y%m%d_%H%M%S}.png"
+            )
         sky_state = "burst"
 
     if pip_state == "filled" and sky_state == "default":
@@ -334,7 +347,14 @@ while not keyboard.is_pressed("q"):
             # press in time with the circle
             keyboard.press_and_release("enter")
             print("Enter pressed, sleeping for 4 seconds")
+            print(f"Count: {count}")
             time.sleep(4)
+            payload = {
+                "embeds": [
+                    {"color": 0x00FF00, "title": f"Wild detected. Count: {count}."}
+                ]
+            }
+            logToDiscord(payload)
             pathlib.Path("./detection_history/wild").mkdir(parents=True, exist_ok=True)
             Image.fromarray(screenshot_array).save(
                 "./detection_history/wild/"
@@ -343,10 +363,10 @@ while not keyboard.is_pressed("q"):
             # Image.fromarray(region_screenshot_array).save("./region.png")
             break
         else:
-            print(f"Not yet {dt.now():%H%M%S}")
+            # print(f"Not yet {dt.now():%H%M%S}")
             # failsafe in case bot is stuck in loop waiting for wild
             count += 1
-            if count > 300:
+            if count > 400:
                 payload = {
                     "embeds": [{"color": 0xFF0000, "title": "Failsafe triggered."}]
                 }
