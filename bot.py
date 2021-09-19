@@ -112,6 +112,7 @@ if not hwnd:
 window_left, window_top, window_right, window_bottom = win32gui.GetWindowRect(hwnd)
 window_width, window_height = window_right - window_left, window_bottom - window_top
 
+
 # returns an RGB array
 # https://github.com/NetEaseGame/ATX/blob/master/atx/drivers/windows.py
 # https://stackoverflow.com/questions/4589206/python-windows-7-screenshot-without-pil
@@ -345,7 +346,7 @@ while not keyboard.is_pressed("q"):
             print(f"Not yet {dt.now():%H%M%S}")
             # failsafe in case bot is stuck in loop waiting for wild
             count += 1
-            if count > 400:
+            if count > 300:
                 payload = {
                     "embeds": [{"color": 0xFF0000, "title": "Failsafe triggered."}]
                 }
@@ -354,6 +355,13 @@ while not keyboard.is_pressed("q"):
                 keyboard.press_and_release("enter")
                 print("Enter pressed, sleeping for 3 seconds")
                 time.sleep(3)
+                pathlib.Path("./detection_history/failsafe").mkdir(
+                    parents=True, exist_ok=True
+                )
+                Image.fromarray(screenshot_array).save(
+                    "./detection_history/failsafe/"
+                    + f"failsafe_{dt.now():%Y%m%d_%H%M%S}.png"
+                )
                 break
 
     keyboard.press_and_release("enter")
